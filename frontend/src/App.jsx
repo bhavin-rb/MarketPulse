@@ -1,11 +1,14 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, lazy, Suspense } from 'react'
 import { fetchForecast } from './api'
-import StockLineChart from './components/LineChart'
-import DailyChangeChart from './components/BarChart'
-import PortfolioPieChart from './components/PieChart'
 import TickerSearch from './components/TickerSearch'
 import logoMain from './assets/logo_main_new.png'
 import './App.css'
+
+// Lazy-loaded: recharts is the largest dependency, so charts are only
+// fetched once results exist, keeping the initial page load lighter.
+const StockLineChart = lazy(() => import('./components/LineChart'))
+const DailyChangeChart = lazy(() => import('./components/BarChart'))
+const PortfolioPieChart = lazy(() => import('./components/PieChart'))
 
 function formatMarketCap(num) {
   if (!num) return 'N/A'
@@ -279,6 +282,7 @@ export default function App() {
         )}
 
         {data && activeTab === 'forecasts' && (
+          <Suspense fallback={<p className="loading-msg">Loading charts...</p>}>
           <section className="results">
             {data.stocks.map(stock => (
               <div key={stock.ticker} className="stock-card">
@@ -345,9 +349,11 @@ export default function App() {
               </div>
             )}
           </section>
+          </Suspense>
         )}
 
         {data && activeTab === 'weights' && data.stocks.length >= 2 && (
+          <Suspense fallback={<p className="loading-msg">Loading charts...</p>}>
           <section className="results">
             <div className="stock-card">
               <h2>Portfolio Weights Configuration</h2>
@@ -520,6 +526,7 @@ export default function App() {
               />
             </div>
           </section>
+          </Suspense>
         )}
       </main>
     </div>

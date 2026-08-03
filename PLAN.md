@@ -416,3 +416,38 @@ All checks passed. Phase 10 is **verified and complete**.
 | 9 | Dark theme colors, spacing tokens, and existing desktop layout unchanged above the new breakpoints | PASS |
 | 10 | `npx vite build` — 617 modules, 0 errors, clean production build | PASS |
 | 11 | No changes made to Phases 1–9 logic — only CSS/layout adjustments and a non-logic JSX table wrapper | PASS |
+
+## Phase 11 – Performance Optimization
+
+### Objectives
+- **[Data caching](ca://s?q=Forecast_data_caching)** → Reuse historical price data to avoid repeated fetches.  
+- **[Async operations](ca://s?q=Async_forecast_operations)** → Keep the UI responsive while forecasts run in the background.  
+- **[Lazy loading](ca://s?q=Lazy_loading_forecast_charts)** → Render charts only when needed to reduce initial load time.  
+- **[Compression & minification](ca://s?q=Code_minification_and_compression)** → Minify JS/CSS and enable gzip/brotli for faster delivery.  
+- **[Preserve existing functionality](ca://s?q=Preserve_forecast_functionality)** → Do not alter any logic from Phases 1–10.  
+
+###  Deliverables
+- Faster forecast generation for multiple tickers.  
+- Reduced load times on mobile and desktop.  
+- Smooth chart rendering without lag.  
+- Efficient use of API calls and system resources.  
+
+---
+
+### Phase 11 — Verification Results (tested 2026-08-03)
+
+All checks passed. Phase 11 is **verified and complete**.
+
+| # | Check | Result |
+|---|-------|--------|
+| 1 | `forecaster.py` — in-memory TTL cache (5 min, thread-safe) added around `_fetch()`; repeated requests for the same ticker within the window skip the full 2015–today re-download | PASS |
+| 2 | `app.py` — `/api/forecast` resolves and forecasts each requested ticker concurrently via `ThreadPoolExecutor` instead of sequentially, cutting total wait time for portfolios | PASS |
+| 3 | Flask dev server runs with `threaded=True` so the UI stays responsive to other requests (e.g. `/api/search`) while a forecast is in progress | PASS |
+| 4 | `App.jsx` — `LineChart`, `BarChart`, and `PieChart` converted to `React.lazy` + `Suspense`, code-splitting recharts out of the main bundle | PASS |
+| 5 | `npx vite build` confirms code-splitting: main bundle dropped from 638 kB to 208 kB; `LineChart`, `BarChart`, `PieChart`, and shared chart chunks load as separate files only when results are shown | PASS |
+| 6 | `vite-plugin-compression2` added to `vite.config.js`, emitting pre-compressed `.gz` and `.br` assets for every JS/CSS/HTML file in the build | PASS |
+| 7 | Production build remains minified via Vite's default esbuild minification; no regressions | PASS |
+| 8 | `python -c "import ast..."` syntax check passes for `app.py` and `forecaster.py` | PASS |
+| 9 | No changes made to Phases 1–10 forecasting logic, API contracts, or dark mode styling — only caching, concurrency, lazy loading, and build-output compression added | PASS |
+
+

@@ -5,6 +5,7 @@ from flask_cors import CORS
 from forecaster import run_forecast
 import yfinance as yf
 import traceback # Import traceback module
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173"])
@@ -58,6 +59,11 @@ def resolve_ticker(name: str) -> str:
     raise ValueError(f"Could not resolve ticker for '{name}'")
 
 
+def _resolve_and_forecast(name: str, start_date: str | None) -> dict:
+    ticker = resolve_ticker(name)
+    return run_forecast(ticker, start_date=start_date)
+
+
 @app.route("/api/forecast", methods=["POST"])
 def forecast():
     body = request.get_json(force=True, silent=True) or {}
@@ -69,18 +75,20 @@ def forecast():
 
     stocks = []
 
-    for name in tickers_raw:
-        try:
-            ticker = resolve_ticker(name)
-            data = run_forecast(ticker, start_date=start_date)
-            stocks.append(data)
-        except ValueError as e:
-            print(f"Forecast validation error for '{name}': {e}")
-            return jsonify({"error": str(e)}), 404
-        except Exception:
-            print(f"An error occurred during forecast for '{name}':")
-            traceback.print_exc() # Log full traceback server-side only, never expose to the client
-            return jsonify({"error": f"Forecast unavailable for ticker '{name}' due to insufficient data."}), 500
+    # Tickers are independent I/O-bound fetches (yfinance network calls); run them
+    # concurrently so a multi-stock portfolio doesn't wait on each stock sequentially.
+    with ThreadPoolExecutor(max_workers=min(8, len(tickers_raw))) as executor:
+        futures = [executor.submit(_resolve_and_forecast, name, start_date) for name in tickers_raw]
+        for name, future in zip(tickers_raw, futures):
+            try:
+                stocks.append(future.result())
+            except ValueError as e:
+                print(f"Forecast validation error for '{name}': {e}")
+                return jsonify({"error": str(e)}), 404
+            except Exception:
+                print(f"An error occurred during forecast for '{name}':")
+                traceback.print_exc() # Log full traceback server-side only, never expose to the client
+                return jsonify({"error": f"Forecast unavailable for ticker '{name}' due to insufficient data."}), 500
 
     tickers = [s["ticker"] for s in stocks]
 
@@ -139,4 +147,6 @@ def search_ticker():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # threaded=True keeps the dev server responsive to other requests while a
+    # forecast (network-bound yfinance calls) is in progress
+    app.run(debug=True, port=5000, threaded=True)

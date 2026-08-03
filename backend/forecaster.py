@@ -5,13 +5,27 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from datetime import datetime
 import requests # Import requests for session management
+import threading
+import time
 
 
 FEATURES = ["Lag1", "Lag2", "Lag3", "Lag5", "Lag10", "SMA_5", "SMA_10", "RSI_14"]
 MIN_ROWS_FOR_FEATURES = 30  # need enough history to build lag10/sma10/rsi14 and leave rows for training
 
+# In-memory cache for raw historical fetches, keyed by ticker, to avoid
+# re-downloading the same full price history on every request within a short window.
+_FETCH_CACHE: dict[str, tuple[float, pd.DataFrame, int | None]] = {}
+_FETCH_CACHE_TTL_SECONDS = 300
+_FETCH_CACHE_LOCK = threading.Lock()
+
 
 def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
+    now = time.time()
+    with _FETCH_CACHE_LOCK:
+        cached = _FETCH_CACHE.get(ticker)
+        if cached and (now - cached[0]) < _FETCH_CACHE_TTL_SECONDS:
+            return cached[1].copy(), cached[2]
+
     today = datetime.today().strftime("%Y-%m-%d")
 
     # Create a custom session with a User-Agent header
@@ -38,7 +52,11 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
+    with _FETCH_CACHE_LOCK:
+        _FETCH_CACHE[ticker] = (now, df, market_cap)
+
     return df, market_cap
+
 
 
 
