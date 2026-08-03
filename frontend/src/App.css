@@ -650,3 +650,97 @@ details[open] .forecast-details-toggle::before {
   border-top: 1px solid #2e354f;
   padding-top: 0.75rem;
 }
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .app {
+    max-width: 100%;
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .app {
+    padding: 1.25rem 1rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .field {
+    min-width: 0;
+  }
+
+  .btn-forecast,
+  .btn-reset {
+    width: 100%;
+  }
+
+  .tab-navigation {
+    gap: 0.25rem;
+  }
+
+  .tab-button {
+    flex: 1;
+    padding: 0.65rem 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .stock-card {
+    padding: 1.1rem;
+  }
+
+  .presets-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .segmented-control {
+    width: 100%;
+  }
+
+  .control-btn {
+    flex: 1;
+  }
+
+  .weight-control-row {
+    flex-wrap: wrap;
+  }
+
+  .weight-ticker-container {
+    width: auto;
+  }
+
+  .weight-slider {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .weights-validation-banner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-normalize {
+    width: 100%;
+  }
+
+  .forecast-table {
+    font-size: 0.78rem;
+  }
+
+  .forecast-table th,
+  .forecast-table td {
+    padding: 0.3rem 0.5rem;
+  }
+}

@@ -323,21 +323,23 @@ export default function App() {
                 {portfolioData.isValid && (
                   <details className="forecast-details">
                     <summary className="forecast-details-toggle">Show 7-day forecast values</summary>
-                    <table className="forecast-table">
-                      <thead>
-                        <tr><th>Date</th><th>Forecast ($)</th><th>Lower ($)</th><th>Upper ($)</th></tr>
-                      </thead>
-                      <tbody>
-                        {portfolioData.forecast.map(row => (
-                          <tr key={row.date}>
-                            <td>{row.date}</td>
-                            <td>{row.value.toFixed(2)}</td>
-                            <td>{row.lower.toFixed(2)}</td>
-                            <td>{row.upper.toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="table-scroll">
+                      <table className="forecast-table">
+                        <thead>
+                          <tr><th>Date</th><th>Forecast ($)</th><th>Lower ($)</th><th>Upper ($)</th></tr>
+                        </thead>
+                        <tbody>
+                          {portfolioData.forecast.map(row => (
+                            <tr key={row.date}>
+                              <td>{row.date}</td>
+                              <td>{row.value.toFixed(2)}</td>
+                              <td>{row.lower.toFixed(2)}</td>
+                              <td>{row.upper.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </details>
                 )}
               </div>
