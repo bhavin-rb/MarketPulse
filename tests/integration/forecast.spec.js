@@ -92,7 +92,7 @@ test.describe('Multi-stock forecast — AAPL, MSFT', () => {
       })
       return res.json()
     })
-    const total = Object.values(response.weights).reduce((s, w) => s + w, 0)
+    const total = Object.values(response.weights.equal).reduce((s, w) => s + w, 0)
     expect(total).toBeCloseTo(1, 2)
   })
 

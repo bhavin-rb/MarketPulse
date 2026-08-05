@@ -388,29 +388,18 @@ export default function App() {
                     onClick={() => {
                       setSelectedPreset('market-cap')
                       const N = data.stocks.length
-                      const totalMc = data.stocks.reduce((sum, s) => sum + (s.market_cap || 0), 0)
+                      const mcWeights = data.weights && data.weights.marketcap
                       const newWeights = {}
-                      if (totalMc === 0) {
-                        const equalVal = Math.floor(100 / N)
-                        data.stocks.forEach((s, idx) => {
-                          if (idx === N - 1) {
-                            newWeights[s.ticker] = 100 - (equalVal * (N - 1))
-                          } else {
-                            newWeights[s.ticker] = equalVal
-                          }
-                        })
-                      } else {
-                        let sumOfProportions = 0
-                        data.stocks.forEach((s, idx) => {
-                          if (idx === N - 1) {
-                            newWeights[s.ticker] = Math.max(0, 100 - sumOfProportions)
-                          } else {
-                            const prop = Math.round(((s.market_cap || 0) / totalMc) * 100)
-                            newWeights[s.ticker] = prop
-                            sumOfProportions += prop
-                          }
-                        })
-                      }
+                      let sum = 0
+                      data.stocks.forEach((s, idx) => {
+                        if (idx === N - 1) {
+                          newWeights[s.ticker] = Math.max(0, 100 - sum)
+                        } else {
+                          const pct = Math.round((mcWeights ? (mcWeights[s.ticker] || 0) : 1 / N) * 100)
+                          newWeights[s.ticker] = pct
+                          sum += pct
+                        }
+                      })
                       setPortfolioWeights(newWeights)
                     }}
                   >

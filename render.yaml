@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: marketpulse-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: CACHE_TIMEOUT
+        value: 300
+      - key: LOG_LEVEL
+        value: INFO
+
+  - type: web
+    name: marketpulse-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: marketpulse-backend
+          type: web
+          property: host

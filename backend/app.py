@@ -8,7 +8,7 @@ import traceback # Import traceback module
 from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173"])
+CORS(app, origins=["http://localhost:5173", "https://marketpulse-frontend.onrender.com"])
 
 # Dynamic mapping of company names to tickers for better user experience
 COMMON_MAP = {
@@ -93,9 +93,27 @@ def forecast():
     tickers = [s["ticker"] for s in stocks]
 
     n = len(tickers)
-    weights = {t: round(1 / n, 4) for t in tickers}
+    equal_weights = {t: round(1 / n, 4) for t in tickers}
 
-    # Consolidated portfolio: equal-weight average across all stocks (only for \u2265 2 tickers)
+    total_mc = sum(s.get("market_cap") or 0 for s in stocks)
+    if total_mc > 0:
+        raw_mc = {s["ticker"]: (s.get("market_cap") or 0) / total_mc for s in stocks}
+        # Assign proportional weights, last ticker absorbs rounding remainder
+        mc_weights = {}
+        allocated = 0.0
+        for i, t in enumerate(tickers):
+            if i == n - 1:
+                mc_weights[t] = round(1.0 - allocated, 4)
+            else:
+                w = round(raw_mc[t], 4)
+                mc_weights[t] = w
+                allocated += w
+    else:
+        mc_weights = equal_weights.copy()
+
+    weights = {"equal": equal_weights, "marketcap": mc_weights}
+
+    # Consolidated portfolio: equal-weight average across all stocks (only for >= 2 tickers)
     portfolio = None
     if n >= 2:
         # History: inner-join on dates present in ALL stocks, then average close price
