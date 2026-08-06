@@ -9,8 +9,8 @@ import threading
 import time
 import os
 
-ALPHA_KEY = os.getenv("ALPHA_KEY")
-FINNHUB_KEY = os.getenv("FINNHUB_KEY")
+TWELVE_KEY = os.getenv("TWELVE_KEY")
+FMP_KEY = os.getenv("FMP_KEY")
 
 
 
@@ -30,48 +30,51 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
         if cached and (now - cached[0]) < _FETCH_CACHE_TTL_SECONDS:
             return cached[1].copy(), cached[2]
 
-    today = datetime.today().strftime("%Y-%m-%d")
     df = pd.DataFrame()
 
-    # Use Alpha Vantage for history
+    # Twelve Data for history
     try:
-        print(f"Fetching Alpha Vantage daily adjusted for {ticker}")
+        print(f"Fetching Twelve Data daily series for {ticker}")
         url_prices = (
-            f"https://www.alphavantage.co/query?"
-            f"function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&apikey={ALPHA_KEY}"
+            f"https://api.twelvedata.com/time_series?"
+            f"symbol={ticker}&interval=1day&outputsize=5000&apikey={TWELVE_KEY}"
         )
-        data_prices = requests.get(url_prices).json().get("Time Series (Daily)", {})
-        if data_prices:
-            df = pd.DataFrame.from_dict(data_prices, orient="index", dtype=float)
-            df.index = pd.to_datetime(df.index)
-            df.rename(columns={"5. adjusted close": "Close"}, inplace=True)
+        data_prices = requests.get(url_prices).json()
+        values = data_prices.get("values", [])
+        if values:
+            df = pd.DataFrame(values)
+            df["datetime"] = pd.to_datetime(df["datetime"])
+            df.set_index("datetime", inplace=True)
+            df.rename(columns={"close": "Close"}, inplace=True)
             df.sort_index(inplace=True)
     except Exception as e:
-        print(f"Alpha Vantage price history error for {ticker}: {e}")
+        print(f"Twelve Data history error for {ticker}: {e}")
 
     market_cap = None
 
-    # Try Alpha Vantage for market cap
+    # Financial Modeling Prep for market cap
     try:
-        url_alpha = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={ALPHA_KEY}"
-        data_alpha = requests.get(url_alpha).json()
-        mc = data_alpha.get("MarketCapitalization")
-        if mc:
-            market_cap = float(mc)
-            print(f"{ticker} market cap from Alpha Vantage: {market_cap}")
+        url_fmp = f"https://financialmodelingprep.com/api/v3/profile/{ticker}?apikey={FMP_KEY}"
+        data_fmp = requests.get(url_fmp).json()
+        if data_fmp and isinstance(data_fmp, list):
+            mc = data_fmp[0].get("mktCap")
+            if mc:
+                market_cap = float(mc)
+                print(f"{ticker} market cap from FMP: {market_cap}")
     except Exception as e:
-        print(f"Alpha Vantage error for {ticker}: {e}")
+        print(f"FMP error for {ticker}: {e}")
 
-    # Fallback to Finnhub if Alpha Vantage fails
+    # Fallback to Finnhub if FMP fails
     if market_cap is None:
         try:
             url_finnhub = (
-                f"https://finnhub.io/api/v1/stock/metric?symbol={ticker}&metric=all&token={FINNHUB_KEY}"
+                f"https://finnhub.io/api/v1/stock/metric?"
+                f"symbol={ticker}&metric=all&token={FINNHUB_KEY}"
             )
             data_finnhub = requests.get(url_finnhub).json()
             mc = data_finnhub.get("metric", {}).get("marketCapitalization")
             if mc:
-                market_cap = float(mc) * 1e6  # normalize millions → absolute USD
+                market_cap = float(mc) * 1e6
                 print(f"{ticker} market cap from Finnhub: {market_cap}")
         except Exception as e:
             print(f"Finnhub error for {ticker}: {e}")
