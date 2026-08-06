@@ -33,10 +33,13 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     today = datetime.today().strftime("%Y-%m-%d")
     df = pd.DataFrame()
 
-    # Try Alpha Vantage first for history
+    # Use Alpha Vantage for history
     try:
         print(f"Fetching Alpha Vantage daily adjusted for {ticker}")
-        url_prices = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&apikey={ALPHA_KEY}"
+        url_prices = (
+            f"https://www.alphavantage.co/query?"
+            f"function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&apikey={ALPHA_KEY}"
+        )
         data_prices = requests.get(url_prices).json().get("Time Series (Daily)", {})
         if data_prices:
             df = pd.DataFrame.from_dict(data_prices, orient="index", dtype=float)
@@ -45,14 +48,6 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
             df.sort_index(inplace=True)
     except Exception as e:
         print(f"Alpha Vantage price history error for {ticker}: {e}")
-
-    # Fallback to Yahoo if Alpha Vantage fails
-    if df.empty:
-        try:
-            print(f"Alpha Vantage failed, trying Yahoo Finance for {ticker}")
-            df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
-        except Exception as e:
-            print(f"Yahoo Finance error for {ticker}: {e}")
 
     market_cap = None
 
@@ -70,11 +65,13 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     # Fallback to Finnhub if Alpha Vantage fails
     if market_cap is None:
         try:
-            url_finnhub = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker}&metric=all&token={FINNHUB_KEY}"
+            url_finnhub = (
+                f"https://finnhub.io/api/v1/stock/metric?symbol={ticker}&metric=all&token={FINNHUB_KEY}"
+            )
             data_finnhub = requests.get(url_finnhub).json()
             mc = data_finnhub.get("metric", {}).get("marketCapitalization")
             if mc:
-                market_cap = float(mc) * 1e6
+                market_cap = float(mc) * 1e6  # normalize millions → absolute USD
                 print(f"{ticker} market cap from Finnhub: {market_cap}")
         except Exception as e:
             print(f"Finnhub error for {ticker}: {e}")
