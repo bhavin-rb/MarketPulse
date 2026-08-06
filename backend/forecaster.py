@@ -7,6 +7,7 @@ from datetime import datetime
 import requests # Import requests for session management
 import threading
 import time
+from config import ALPHA_KEY, FINNHUB_KEY  # import keys safely
 
 
 FEATURES = ["Lag1", "Lag2", "Lag3", "Lag5", "Lag10", "SMA_5", "SMA_10", "RSI_14"]
@@ -25,7 +26,7 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime
 
-def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
+def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     now = time.time()
     with _FETCH_CACHE_LOCK:
         cached = _FETCH_CACHE.get(ticker)
@@ -33,35 +34,33 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
             return cached[1].copy(), cached[2]
 
     today = datetime.today().strftime("%Y-%m-%d")
-
-    session = requests.Session()
-    session.headers['User-Agent'] = (
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/91.0.4472.124 Safari/537.36'
-    )
-
-    stock = yf.Ticker(ticker, session=session)
+    stock = yf.Ticker(ticker)
     df = stock.history(start="2015-01-01", end=today, auto_adjust=True)
 
     market_cap = None
-    # Retry loop for stock.info
-    for attempt in range(3):
+
+    # Try Alpha Vantage first
+    try:
+        url_alpha = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={ALPHA_KEY}"
+        data_alpha = requests.get(url_alpha).json()
+        mc = data_alpha.get("MarketCapitalization")
+        if mc:
+            market_cap = float(mc)
+            print(f"{ticker} market cap from Alpha Vantage: {market_cap}")
+    except Exception as e:
+        print(f"Alpha Vantage error for {ticker}: {e}")
+
+    # Fallback to Finnhub if Alpha Vantage fails
+    if market_cap is None:
         try:
-            mc = stock.info.get("marketCap")
-            if mc is not None:
-                market_cap = int(mc)
-                break
-            else:
-                shares = stock.info.get("sharesOutstanding")
-                last_close = df["Close"].iloc[-1] if not df.empty else None
-                if shares and last_close:
-                    market_cap = int(shares * last_close)
-                    print(f"⚠️ Fallback market cap computed for {ticker}")
-                    break
+            url_finnhub = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker}&metric=all&token={FINNHUB_KEY}"
+            data_finnhub = requests.get(url_finnhub).json()
+            mc = data_finnhub.get("metric", {}).get("marketCapitalization")
+            if mc:
+                market_cap = float(mc)
+                print(f"{ticker} market cap from Finnhub: {market_cap}")
         except Exception as e:
-            print(f"Attempt {attempt+1}: error fetching info for {ticker} → {e}")
-        time.sleep(2)  # wait before retry
+            print(f"Finnhub error for {ticker}: {e}")
 
     if df.empty:
         df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
@@ -73,7 +72,6 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
         _FETCH_CACHE[ticker] = (now, df, market_cap)
 
     print(f"DEBUG: {ticker} market_cap = {market_cap}")
-
     return df, market_cap
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
