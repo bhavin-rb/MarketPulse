@@ -19,6 +19,12 @@ _FETCH_CACHE_TTL_SECONDS = 300
 _FETCH_CACHE_LOCK = threading.Lock()
 
 
+import time
+import requests
+import yfinance as yf
+import pandas as pd
+from datetime import datetime
+
 def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
     now = time.time()
     with _FETCH_CACHE_LOCK:
@@ -38,25 +44,24 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
     stock = yf.Ticker(ticker, session=session)
     df = stock.history(start="2015-01-01", end=today, auto_adjust=True)
 
-    # 👇 Add a small delay before hitting Yahoo Finance info
-    time.sleep(1)
-
     market_cap = None
-    try:
-        mc = stock.info.get("marketCap")
-        if mc is not None:
-            market_cap = int(mc)
-        else:
-            # Fallback: compute from sharesOutstanding × last_close
-            shares = stock.info.get("sharesOutstanding")
-            last_close = df["Close"].iloc[-1] if not df.empty else None
-            if shares and last_close:
-                market_cap = int(shares * last_close)
-                print(f"⚠️ Fallback market cap computed for {ticker}")
+    # Retry loop for stock.info
+    for attempt in range(3):
+        try:
+            mc = stock.info.get("marketCap")
+            if mc is not None:
+                market_cap = int(mc)
+                break
             else:
-                print(f"⚠️ Market cap not available for {ticker}")
-    except Exception as e:
-        print(f"Error fetching market cap for {ticker}: {e}")
+                shares = stock.info.get("sharesOutstanding")
+                last_close = df["Close"].iloc[-1] if not df.empty else None
+                if shares and last_close:
+                    market_cap = int(shares * last_close)
+                    print(f"⚠️ Fallback market cap computed for {ticker}")
+                    break
+        except Exception as e:
+            print(f"Attempt {attempt+1}: error fetching info for {ticker} → {e}")
+        time.sleep(2)  # wait before retry
 
     if df.empty:
         df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
