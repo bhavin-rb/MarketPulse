@@ -38,6 +38,9 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
     stock = yf.Ticker(ticker, session=session)
     df = stock.history(start="2015-01-01", end=today, auto_adjust=True)
 
+    # 👇 Add a small delay before hitting Yahoo Finance info
+    time.sleep(1)
+
     market_cap = None
     try:
         mc = stock.info.get("marketCap")
