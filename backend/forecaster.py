@@ -7,7 +7,11 @@ from datetime import datetime
 import requests # Import requests for session management
 import threading
 import time
-from config import ALPHA_KEY, FINNHUB_KEY  # import keys safely
+import os
+
+ALPHA_KEY = os.getenv("ALPHA_KEY")
+FINNHUB_KEY = os.getenv("FINNHUB_KEY")
+
 
 
 FEATURES = ["Lag1", "Lag2", "Lag3", "Lag5", "Lag10", "SMA_5", "SMA_10", "RSI_14"]
@@ -18,13 +22,6 @@ MIN_ROWS_FOR_FEATURES = 30  # need enough history to build lag10/sma10/rsi14 and
 _FETCH_CACHE: dict[str, tuple[float, pd.DataFrame, int | None]] = {}
 _FETCH_CACHE_TTL_SECONDS = 300
 _FETCH_CACHE_LOCK = threading.Lock()
-
-
-import time
-import requests
-import yfinance as yf
-import pandas as pd
-from datetime import datetime
 
 def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     now = time.time()
