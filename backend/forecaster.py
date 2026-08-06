@@ -42,9 +42,16 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
     try:
         mc = stock.info.get("marketCap")
         if mc is not None:
-            market_cap = int(mc)  # 👈 always cast to int
+            market_cap = int(mc)
         else:
-            print(f"⚠️ Market cap not available for {ticker}")
+            # Fallback: compute from sharesOutstanding × last_close
+            shares = stock.info.get("sharesOutstanding")
+            last_close = df["Close"].iloc[-1] if not df.empty else None
+            if shares and last_close:
+                market_cap = int(shares * last_close)
+                print(f"⚠️ Fallback market cap computed for {ticker}")
+            else:
+                print(f"⚠️ Market cap not available for {ticker}")
     except Exception as e:
         print(f"Error fetching market cap for {ticker}: {e}")
 
@@ -54,14 +61,12 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
-    # Cache only after ensuring market_cap is properly set
     with _FETCH_CACHE_LOCK:
         _FETCH_CACHE[ticker] = (now, df, market_cap)
 
-    print(f"DEBUG: {ticker} market_cap = {market_cap}")  # 👈 temporary log
+    print(f"DEBUG: {ticker} market_cap = {market_cap}")
 
     return df, market_cap
-
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
