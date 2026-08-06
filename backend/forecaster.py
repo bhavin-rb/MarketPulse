@@ -34,9 +34,28 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     stock = yf.Ticker(ticker)
     df = stock.history(start="2015-01-01", end=today, auto_adjust=True)
 
+    # Fallback to yf.download if history is empty
+    if df.empty:
+        print(f"Yahoo history failed for {ticker}, retrying with yf.download")
+        df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
+
+    # Fallback to Alpha Vantage if still empty
+    if df.empty:
+        try:
+            print(f"Yahoo completely failed for {ticker}, fetching Alpha Vantage daily adjusted")
+            url_prices = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&apikey={ALPHA_KEY}"
+            data_prices = requests.get(url_prices).json().get("Time Series (Daily)", {})
+            if data_prices:
+                df = pd.DataFrame.from_dict(data_prices, orient="index", dtype=float)
+                df.index = pd.to_datetime(df.index)
+                df.rename(columns={"5. adjusted close": "Close"}, inplace=True)
+                df.sort_index(inplace=True)
+        except Exception as e:
+            print(f"Alpha Vantage price history error for {ticker}: {e}")
+
     market_cap = None
 
-    # Try Alpha Vantage first
+    # Try Alpha Vantage for market cap
     try:
         url_alpha = f"https://www.alphavantage.co/query?function=OVERVIEW&symbol={ticker}&apikey={ALPHA_KEY}"
         data_alpha = requests.get(url_alpha).json()
@@ -54,13 +73,10 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
             data_finnhub = requests.get(url_finnhub).json()
             mc = data_finnhub.get("metric", {}).get("marketCapitalization")
             if mc:
-                market_cap = float(mc) * 1e6  # Finnhub returns market cap in millions  
+                market_cap = float(mc) * 1e6  # normalize millions → absolute USD
                 print(f"{ticker} market cap from Finnhub: {market_cap}")
         except Exception as e:
             print(f"Finnhub error for {ticker}: {e}")
-
-    if df.empty:
-        df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
 
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
@@ -70,6 +86,7 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
 
     print(f"DEBUG: {ticker} market_cap = {market_cap}")
     return df, market_cap
+
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
