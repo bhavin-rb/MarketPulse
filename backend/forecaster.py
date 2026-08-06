@@ -33,30 +33,26 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     today = datetime.today().strftime("%Y-%m-%d")
     df = pd.DataFrame()
 
-    # Try Yahoo Finance first
+    # Try Alpha Vantage first for history
     try:
-        stock = yf.Ticker(ticker)
-        df = stock.history(start="2015-01-01", end=today, auto_adjust=True)
-        if df.empty:
-            print(f"Yahoo history empty for {ticker}, retrying with yf.download")
-            df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
+        print(f"Fetching Alpha Vantage daily adjusted for {ticker}")
+        url_prices = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&apikey={ALPHA_KEY}"
+        data_prices = requests.get(url_prices).json().get("Time Series (Daily)", {})
+        if data_prices:
+            df = pd.DataFrame.from_dict(data_prices, orient="index", dtype=float)
+            df.index = pd.to_datetime(df.index)
+            df.rename(columns={"5. adjusted close": "Close"}, inplace=True)
+            df.sort_index(inplace=True)
     except Exception as e:
-        print(f"Yahoo Finance error for {ticker}: {e}")
-        df = pd.DataFrame()  # force empty so Alpha Vantage fallback runs
+        print(f"Alpha Vantage price history error for {ticker}: {e}")
 
-    # Fallback to Alpha Vantage if Yahoo fails or is empty
+    # Fallback to Yahoo if Alpha Vantage fails
     if df.empty:
         try:
-            print(f"Fetching Alpha Vantage daily adjusted for {ticker}")
-            url_prices = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol={ticker}&outputsize=full&apikey={ALPHA_KEY}"
-            data_prices = requests.get(url_prices).json().get("Time Series (Daily)", {})
-            if data_prices:
-                df = pd.DataFrame.from_dict(data_prices, orient="index", dtype=float)
-                df.index = pd.to_datetime(df.index)
-                df.rename(columns={"5. adjusted close": "Close"}, inplace=True)
-                df.sort_index(inplace=True)
+            print(f"Alpha Vantage failed, trying Yahoo Finance for {ticker}")
+            df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
         except Exception as e:
-            print(f"Alpha Vantage price history error for {ticker}: {e}")
+            print(f"Yahoo Finance error for {ticker}: {e}")
 
     market_cap = None
 
@@ -78,7 +74,7 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
             data_finnhub = requests.get(url_finnhub).json()
             mc = data_finnhub.get("metric", {}).get("marketCapitalization")
             if mc:
-                market_cap = float(mc) * 1e6  # normalize millions → absolute USD
+                market_cap = float(mc) * 1e6
                 print(f"{ticker} market cap from Finnhub: {market_cap}")
         except Exception as e:
             print(f"Finnhub error for {ticker}: {e}")
@@ -91,7 +87,6 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
 
     print(f"DEBUG: {ticker} market_cap = {market_cap}")
     return df, market_cap
-
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
