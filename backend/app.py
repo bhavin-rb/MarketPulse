@@ -2,7 +2,7 @@
 #app.py (updated version)
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from forecaster import run_forecast
+from .forecaster import run_forecast
 import yfinance as yf
 import traceback # Import traceback module
 from concurrent.futures import ThreadPoolExecutor
