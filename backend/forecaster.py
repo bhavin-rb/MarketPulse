@@ -33,27 +33,24 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
 
     df = pd.DataFrame()
 
-    # Twelve Data for history
+    # FMP for history
     try:
-        print(f"Fetching Twelve Data daily series for {ticker}")
-        url_prices = (
-            f"https://api.twelvedata.com/time_series?"
-            f"symbol={ticker}&interval=1day&outputsize=5000&apikey={TWELVE_KEY}"
-        )
+        print(f"Fetching FMP historical prices for {ticker}")
+        url_prices = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?serietype=line&apikey={FMP_KEY}"
         data_prices = requests.get(url_prices).json()
-        values = data_prices.get("values", [])
+        values = data_prices.get("historical", [])
         if values:
             df = pd.DataFrame(values)
-            df["datetime"] = pd.to_datetime(df["datetime"])
-            df.set_index("datetime", inplace=True)
+            df["date"] = pd.to_datetime(df["date"])
+            df.set_index("date", inplace=True)
             df.rename(columns={"close": "Close"}, inplace=True)
             df.sort_index(inplace=True)
     except Exception as e:
-        print(f"Twelve Data history error for {ticker}: {e}")
+        print(f"FMP history error for {ticker}: {e}")
 
     market_cap = None
 
-    # Financial Modeling Prep for market cap
+    # FMP for market cap
     try:
         url_fmp = f"https://financialmodelingprep.com/api/v3/profile/{ticker}?apikey={FMP_KEY}"
         data_fmp = requests.get(url_fmp).json()
@@ -63,7 +60,7 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
                 market_cap = float(mc)
                 print(f"{ticker} market cap from FMP: {market_cap}")
     except Exception as e:
-        print(f"FMP error for {ticker}: {e}")
+        print(f"FMP market cap error for {ticker}: {e}")
 
     # Fallback to Finnhub if FMP fails
     if market_cap is None:
