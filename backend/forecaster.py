@@ -54,7 +54,7 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
             data_finnhub = requests.get(url_finnhub).json()
             mc = data_finnhub.get("metric", {}).get("marketCapitalization")
             if mc:
-                market_cap = float(mc)
+                market_cap = float(mc) * 1e6  # Finnhub returns market cap in millions  
                 print(f"{ticker} market cap from Finnhub: {market_cap}")
         except Exception as e:
             print(f"Finnhub error for {ticker}: {e}")
