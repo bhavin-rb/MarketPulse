@@ -40,16 +40,13 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
 
     market_cap = None
     try:
-        # Prefer info["marketCap"], since fast_info is unreliable
-        if "marketCap" in stock.info:
-            market_cap = stock.info.get("marketCap")
-        elif hasattr(stock, "fast_info") and "market_cap" in stock.fast_info:
-            market_cap = stock.fast_info["market_cap"]
+        mc = stock.info.get("marketCap")
+        if mc is not None:
+            market_cap = int(mc)  # 👈 always cast to int
         else:
             print(f"⚠️ Market cap not available for {ticker}")
     except Exception as e:
         print(f"Error fetching market cap for {ticker}: {e}")
-
 
     if df.empty:
         df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
@@ -57,10 +54,14 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
+    # Cache only after ensuring market_cap is properly set
     with _FETCH_CACHE_LOCK:
         _FETCH_CACHE[ticker] = (now, df, market_cap)
 
+    print(f"DEBUG: {ticker} market_cap = {market_cap}")  # 👈 temporary log
+
     return df, market_cap
+
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
