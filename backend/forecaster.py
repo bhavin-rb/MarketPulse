@@ -40,13 +40,16 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
 
     market_cap = None
     try:
-        # Try fast_info first
-        if hasattr(stock, "fast_info") and "market_cap" in stock.fast_info:
+        # Prefer info["marketCap"], since fast_info is unreliable
+        if "marketCap" in stock.info:
+            market_cap = stock.info.get("marketCap")
+        elif hasattr(stock, "fast_info") and "market_cap" in stock.fast_info:
             market_cap = stock.fast_info["market_cap"]
         else:
-            market_cap = stock.info.get("marketCap")
+            print(f"⚠️ Market cap not available for {ticker}")
     except Exception as e:
         print(f"Error fetching market cap for {ticker}: {e}")
+
 
     if df.empty:
         df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
