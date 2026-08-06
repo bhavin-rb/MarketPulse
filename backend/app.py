@@ -139,9 +139,19 @@ def forecast():
             })
 
         portfolio = {"history": portfolio_history, "forecast": portfolio_forecast}
+    
+     # 👉 Decide which weights to return BEFORE returning
+    weight_type = body.get("weight", "equal")
+    chosen_weights = weights.get(weight_type, equal_weights)
 
-    return jsonify({"stocks": stocks, "weights": weights, "portfolio": portfolio})
+    return jsonify({
+        "stocks": stocks,
+        "weights": chosen_weights,
+        "portfolio": portfolio
+    })  
+    # return jsonify({"stocks": stocks, "weights": weights, "portfolio": portfolio})
 
+ 
 @app.route("/api/search", methods=["GET"])
 def search_ticker():
     query = request.args.get("q", "")
