@@ -11,6 +11,7 @@ import os
 
 TWELVE_KEY = os.getenv("TWELVE_KEY")
 FMP_KEY = os.getenv("FMP_KEY")
+FINNHUB_KEY = os.getenv("FINNHUB_KEY")
 
 
 
