@@ -8,7 +8,7 @@ import traceback # Import traceback module
 from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173", "https://marketpulse-frontend.onrender.com"])
+CORS(app, origins=["http://localhost:5173", "https://marketpulse-frontend-2ovy.onrender.com"])
 
 # Dynamic mapping of company names to tickers for better user experience
 COMMON_MAP = {
