@@ -42,8 +42,9 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
             df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
     except Exception as e:
         print(f"Yahoo Finance error for {ticker}: {e}")
+        df = pd.DataFrame()  # force empty so Alpha Vantage fallback runs
 
-    # Fallback to Alpha Vantage if Yahoo fails
+    # Fallback to Alpha Vantage if Yahoo fails or is empty
     if df.empty:
         try:
             print(f"Fetching Alpha Vantage daily adjusted for {ticker}")
@@ -90,6 +91,7 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
 
     print(f"DEBUG: {ticker} market_cap = {market_cap}")
     return df, market_cap
+
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
