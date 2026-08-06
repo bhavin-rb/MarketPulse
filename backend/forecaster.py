@@ -28,27 +28,29 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
 
     today = datetime.today().strftime("%Y-%m-%d")
 
-    # Create a custom session with a User-Agent header
     session = requests.Session()
-    session.headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    session.headers['User-Agent'] = (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/91.0.4472.124 Safari/537.36'
+    )
 
-    # Use yf.Ticker with the custom session
     stock = yf.Ticker(ticker, session=session)
     df = stock.history(start="2015-01-01", end=today, auto_adjust=True)
 
     market_cap = None
     try:
-        market_cap = stock.info.get("marketCap")
+        # Try fast_info first
+        if hasattr(stock, "fast_info") and "market_cap" in stock.fast_info:
+            market_cap = stock.fast_info["market_cap"]
+        else:
+            market_cap = stock.info.get("marketCap")
     except Exception as e:
         print(f"Error fetching market cap for {ticker}: {e}")
 
     if df.empty:
-        # If history() returns an empty DataFrame, try direct download as fallback
-        # Removed 'progress=False' as it's not supported by all yfinance versions in yf.download()
         df = yf.download(ticker, start="2015-01-01", end=today, auto_adjust=True)
 
-    # yfinance.Ticker().history() already returns a clean DataFrame, no MultiIndex flattening needed usually
-    # However, keeping the check for robustness against unexpected yfinance changes or specific data retrieval methods
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
@@ -56,9 +58,6 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, int | None]:
         _FETCH_CACHE[ticker] = (now, df, market_cap)
 
     return df, market_cap
-
-
-
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
