@@ -6,6 +6,11 @@ from .forecaster import run_forecast
 import yfinance as yf
 import traceback # Import traceback module
 from concurrent.futures import ThreadPoolExecutor
+import os
+import requests
+
+FINNHUB_KEY = os.getenv("FINNHUB_KEY")
+
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:5173", "https://marketpulse-frontend-2ovy.onrender.com"])
