@@ -140,7 +140,7 @@ def forecast():
 
     return jsonify({
         "stocks": stocks,
-        "weights": chosen_weights,
+        "weights": weights, # return both equal and marketcap
         "portfolio": portfolio
     })  
     # return jsonify({"stocks": stocks, "weights": weights, "portfolio": portfolio})
