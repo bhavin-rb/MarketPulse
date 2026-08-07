@@ -39,22 +39,11 @@ def resolve_ticker(name: str) -> str:
     if name_clean in COMMON_MAP:
         return COMMON_MAP[name_clean]
 
-    # Try direct ticker
-    try:
-        ticker = yf.Ticker(name.upper().strip())
-        info = ticker.info
-        if "symbol" in info:
-            return info["symbol"]
-    except Exception:
-        pass
-
-    # Fallback search
-    try:
-        search_obj = yf.Search(name)
-        if search_obj.quotes:
-            return search_obj.quotes[0]["symbol"]
-    except Exception:
-        pass
+    # Finnhub fallback
+    url = f"https://finnhub.io/api/v1/search?q={name}&token={FINNHUB_KEY}"
+    data = requests.get(url).json()
+    if data.get("result"):
+        return data["result"][0]["symbol"]
 
     raise ValueError(f"Could not resolve ticker for '{name}'")
 
@@ -158,21 +147,21 @@ def search_ticker():
     if not query:
         return jsonify([])
     try:
-        search_obj = yf.Search(query)
-        results = []
-        for quote in search_obj.quotes:
-            results.append({
-                "symbol": quote.get("symbol"),
-                "shortname": quote.get("shortname") or quote.get("longname") or quote.get("symbol"),
-                "exchange": quote.get("exchange"),
-                "quoteType": quote.get("quoteType")
-            })
+        url = f"https://finnhub.io/api/v1/search?q={query}&token={FINNHUB_KEY}"
+        data = requests.get(url).json()
+        results = [
+            {
+                "symbol": s.get("symbol"),
+                "shortname": s.get("description"),
+                "exchange": s.get("exchange"),
+                "quoteType": s.get("type")
+            }
+            for s in data.get("result", [])
+        ]
         return jsonify(results)
-    except Exception:
-        print(f"An error occurred during ticker search for query '{query}':")
-        traceback.print_exc() # Log full traceback server-side only, never expose to the client
+    except Exception as e:
+        print(f"Search error for '{query}': {e}")
         return jsonify({"error": f"Search unavailable for '{query}' right now."}), 500
-
 
 if __name__ == "__main__":
     # threaded=True keeps the dev server responsive to other requests while a
