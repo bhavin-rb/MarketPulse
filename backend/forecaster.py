@@ -8,7 +8,7 @@ import requests # Import requests for session management
 import threading
 import time
 import os
-
+TIINGO_KEY = os.getenv("TIINGO_KEY")
 TWELVE_KEY = os.getenv("TWELVE_KEY")
 FMP_KEY = os.getenv("FMP_KEY")
 FINNHUB_KEY = os.getenv("FINNHUB_KEY")
@@ -33,20 +33,20 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
 
     df = pd.DataFrame()
 
-    # FMP for history
+    # Tiingo for history
     try:
-        print(f"Fetching FMP historical prices for {ticker}")
-        url_prices = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?serietype=line&apikey={FMP_KEY}"
+        print(f"Fetching Tiingo historical prices for {ticker}")
+        url_prices = f"https://api.tiingo.com/tiingo/daily/{ticker}/prices?startDate=2015-01-01&token={TIINGO_KEY}"
         data_prices = requests.get(url_prices).json()
-        values = data_prices.get("historical", [])
-        if values:
-            df = pd.DataFrame(values)
+        if data_prices:
+            df = pd.DataFrame(data_prices)
             df["date"] = pd.to_datetime(df["date"])
             df.set_index("date", inplace=True)
             df.rename(columns={"close": "Close"}, inplace=True)
             df.sort_index(inplace=True)
+            print(f"Successfully fetched {len(df)} rows from Tiingo for {ticker}.")
     except Exception as e:
-        print(f"FMP history error for {ticker}: {e}")
+        print(f"Tiingo history error for {ticker}: {e}")
 
     market_cap = None
 
@@ -65,10 +65,7 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     # Fallback to Finnhub if FMP fails
     if market_cap is None:
         try:
-            url_finnhub = (
-                f"https://finnhub.io/api/v1/stock/metric?"
-                f"symbol={ticker}&metric=all&token={FINNHUB_KEY}"
-            )
+            url_finnhub = f"https://finnhub.io/api/v1/stock/metric?symbol={ticker}&metric=all&token={FINNHUB_KEY}"
             data_finnhub = requests.get(url_finnhub).json()
             mc = data_finnhub.get("metric", {}).get("marketCapitalization")
             if mc:
@@ -83,7 +80,7 @@ def _fetch(ticker: str) -> tuple[pd.DataFrame, float | None]:
     with _FETCH_CACHE_LOCK:
         _FETCH_CACHE[ticker] = (now, df, market_cap)
 
-    print(f"DEBUG: {ticker} market_cap = {market_cap}")
+    print(f"DEBUG: {ticker} market_cap = {market_cap}, historical_df_empty = {df.empty}")
     return df, market_cap
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
